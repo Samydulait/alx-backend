@@ -2,6 +2,7 @@
 """
 Deletion-resilient hypermedia pagination
 """
+
 import csv
 import math
 from typing import List, Dict
@@ -16,7 +17,7 @@ class Server:
         self.__dataset = None
         self.__indexed_dataset = None
 
-    def dataset(self) -> List[List]:  # sourcery skip: identity-comprehension
+    def dataset(self) -> List[List]:
         """Cached dataset
         """
         if self.__dataset is None:
@@ -39,33 +40,35 @@ class Server:
         return self.__indexed_dataset
 
     def get_hyper_index(self, index: int = None, page_size: int = 10) -> Dict:
-        """ Deletion-resilient hypermedia pagination """
+        """
+        Takes 2 integer arguments and returns a dictionary with
+        the following key-value pairs:
+            index: index of the first item in the current page
+            next_index: index of the first item in the next page
+            page_size: the current page size
+            data: actual page of the dataset
+        Args:
+            index(int): first required index
+            page_size(int): required number of records per page
+        """
+        dataset = self.indexed_dataset()
+        data_length = len(dataset)
+        assert 0 <= index < data_length
+        response = {}
+        data = []
+        response['index'] = index
+        for i in range(page_size):
+            while True:
+                curr = dataset.get(index)
+                index += 1
+                if curr is not None:
+                    break
+            data.append(curr)
 
-        idx_dataset = self.indexed_dataset()
-
-        assert isinstance(index, int) and index < (len(idx_dataset) - 1)
-
-        i, mv, data = 0, index, []
-        while (i < page_size and index < len(idx_dataset)):
-            value = idx_dataset.get(mv, None)
-            if value:
-                data.append(value)
-                i += 1
-            mv += 1
-
-        next_index = None
-        while (mv < len(idx_dataset)):
-            value = idx_dataset.get(mv, None)
-            if value:
-                next_index = mv
-                break
-            mv += 1
-
-        hyper = {
-            'index': index,
-            'next_index': next_index,
-            'page_size': page_size,
-            'data': data
-        }
-
-        return hyper
+        response['data'] = data
+        response['page_size'] = len(data)
+        if dataset.get(index):
+            response['next_index'] = index
+        else:
+            response['next_index'] = None
+        return response   
